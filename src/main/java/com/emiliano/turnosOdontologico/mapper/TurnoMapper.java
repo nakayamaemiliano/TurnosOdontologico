@@ -12,9 +12,11 @@ public class TurnoMapper {
                 turno.getFecha(),
                 turno.getHora(),
                 turno.getEstado(),
+
                 turno.getPaciente().getId(),
                 turno.getPaciente().getNombre(),
                 turno.getPaciente().getApellido(),
+
                 turno.getOdontologo().getId(),
                 turno.getOdontologo().getNombre(),
                 turno.getOdontologo().getApellido(),
