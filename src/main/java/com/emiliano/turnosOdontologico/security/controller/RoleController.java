@@ -54,4 +54,50 @@ public class RoleController {
         return ResponseEntity.ok(newRole);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Role> updateRole(
+            @PathVariable Long id,
+            @RequestBody Role roleDetails) {
+
+        Optional<Role> roleOptional = roleService.findById(id);
+
+        if (roleOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Role role = roleOptional.get();
+
+        role.setRole(roleDetails.getRole());
+
+        Set<Permission> permiList = new HashSet<>();
+        Permission readPermission;
+
+        for (Permission per : roleDetails.getPermissionsList()) {
+            readPermission = permiService.findById(per.getId()).orElse(null);
+
+            if (readPermission != null) {
+                permiList.add(readPermission);
+            }
+        }
+
+        role.setPermissionsList(permiList);
+
+        Role updatedRole = roleService.save(role);
+
+        return ResponseEntity.ok(updatedRole);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRole(@PathVariable Long id) {
+        Optional<Role> roleOptional = roleService.findById(id);
+
+        if (roleOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        roleService.deleteById(id);
+
+        return ResponseEntity.noContent().build();
+    }
+
 }

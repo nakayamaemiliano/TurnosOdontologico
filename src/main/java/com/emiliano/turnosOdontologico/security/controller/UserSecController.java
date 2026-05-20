@@ -60,4 +60,63 @@ public class UserSecController {
         }
         return null;
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UserSec> updateUser(
+            @PathVariable Long id,
+            @RequestBody UserSec userDetails) {
+
+        Optional<UserSec> userOptional = userService.findById(id);
+
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        UserSec user = userOptional.get();
+
+        user.setUsername(userDetails.getUsername());
+
+        if (userDetails.getPassword() != null && !userDetails.getPassword().isBlank()) {
+            user.setPassword(userService.encriptPassword(userDetails.getPassword()));
+        }
+
+        user.setEnabled(userDetails.isEnabled());
+        user.setAccountNotExpired(userDetails.isAccountNotExpired());
+        user.setAccountNotLocked(userDetails.isAccountNotLocked());
+        user.setCredentialNotExpired(userDetails.isCredentialNotExpired());
+
+        Set<Role> roleList = new HashSet<>();
+        Role readRole;
+
+        for (Role role : userDetails.getRoleList()) {
+            readRole = roleService.findById(role.getId()).orElse(null);
+
+            if (readRole != null) {
+                roleList.add(readRole);
+            }
+        }
+
+        if (roleList.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        user.setRoleList(roleList);
+
+        UserSec updatedUser = userService.save(user);
+
+        return ResponseEntity.ok(updatedUser);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        Optional<UserSec> userOptional = userService.findById(id);
+
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        userService.deleteById(id);
+
+        return ResponseEntity.noContent().build();
+    }
 }

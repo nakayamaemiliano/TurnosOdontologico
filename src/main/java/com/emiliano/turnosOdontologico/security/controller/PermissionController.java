@@ -32,5 +32,36 @@ public class PermissionController {
         return ResponseEntity.ok(newPermission);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Permission> updatePermission(
+            @PathVariable Long id,
+            @RequestBody Permission permissionDetails) {
+
+        Optional<Permission> permissionOptional = permissionService.findById(id);
+
+        if (permissionOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Permission permission = permissionOptional.get();
+        permission.setPermissionName(permissionDetails.getPermissionName());
+
+        Permission updatedPermission = permissionService.save(permission);
+
+        return ResponseEntity.ok(updatedPermission);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePermission(@PathVariable Long id) {
+        Optional<Permission> permissionOptional = permissionService.findById(id);
+
+        if (permissionOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        permissionService.deleteById(id);
+
+        return ResponseEntity.noContent().build();
+    }
 
 }
