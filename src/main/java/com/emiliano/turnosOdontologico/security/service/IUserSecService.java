@@ -1,0 +1,16 @@
+package com.emiliano.turnosOdontologico.security.service;
+
+import com.emiliano.turnosOdontologico.security.model.Permission;
+import com.emiliano.turnosOdontologico.security.model.UserSec;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface IUserSecService {
+    List<UserSec> findAll();
+    Optional<UserSec> findById(Long id);
+    UserSec save(UserSec userSec);
+    void deleteById(Long id);
+    UserSec update(UserSec userSec);
+    public String encriptPassword(String password);
+}
