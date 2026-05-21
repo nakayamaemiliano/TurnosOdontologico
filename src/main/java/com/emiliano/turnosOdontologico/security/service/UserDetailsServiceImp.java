@@ -1,20 +1,38 @@
 package com.emiliano.turnosOdontologico.security.service;
 
+import com.emiliano.turnosOdontologico.dto.AuthLoginRequestDTO;
+import com.emiliano.turnosOdontologico.dto.AuthResponseDTO;
 import com.emiliano.turnosOdontologico.security.model.UserSec;
 import com.emiliano.turnosOdontologico.security.repository.UserSecRepository;
+import com.emiliano.turnosOdontologico.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Service
 public class UserDetailsServiceImp  implements UserDetailsService {
+
     @Autowired
     private UserSecRepository userRepo;
+
+    @Autowired
+    private JwtUtils jwtUtils;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -38,13 +56,39 @@ public class UserDetailsServiceImp  implements UserDetailsService {
                 .forEach(permission -> authorityList.add(new SimpleGrantedAuthority(permission.getPermissionName())));
 
         //retornamos el usuario en formato Spring Security con los datos de nuestro userSec
-        return new User(userSec.getUsername(),
+        return new User(
+                userSec.getUsername(),
                 userSec.getPassword(),
                 userSec.isEnabled(),
                 userSec.isAccountNotExpired(),
                 userSec.isCredentialNotExpired(),
                 userSec.isAccountNotLocked(),
                 authorityList);
+    }
+
+    public AuthResponseDTO loginUser(AuthLoginRequestDTO authLoginRequest) {
+
+        String username = authLoginRequest.username();
+        String password = authLoginRequest.password();
+
+        Authentication authentication = this.authenticate (username,password);
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String accessToken = jwtUtils.createToken(authentication);
+        AuthResponseDTO authResponseDTO = new AuthResponseDTO(username, "login ok", accessToken,true);
+        return  authResponseDTO;
+    }
+
+    public  Authentication authenticate (String username , String password){
+        UserDetails userDetails = this.loadUserByUsername(username);
+
+        if (userDetails == null){
+            throw  new BadCredentialsException("usuario o contraseña invalidos");
+        }
+        if (!passwordEncoder.matches(password,userDetails.getPassword())){
+            throw new BadCredentialsException("usuario o contraseña invalidos");
+        }
+       return new UsernamePasswordAuthenticationToken(username,userDetails.getPassword(),userDetails.getAuthorities());
     }
 
 }
