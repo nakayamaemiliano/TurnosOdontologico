@@ -2,9 +2,11 @@ package com.emiliano.turnosOdontologico.security.config;
 
 import com.emiliano.turnosOdontologico.security.filter.JwtTokenValidator;
 import com.emiliano.turnosOdontologico.utils.JwtUtils;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -33,8 +35,27 @@ public class SecurityConfig {
 
         return httpSecurity
                 .csrf(csrf -> csrf.disable())
-                .httpBasic(Customizer.withDefaults())
+                .cors(Customizer.withDefaults())
+                .httpBasic(httpBasic -> httpBasic.disable())
+                .formLogin(formLogin -> formLogin.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "No autorizado"))
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                        .requestMatchers("/users/**", "/roles/**", "/permissions/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/pacientes/**", "/odontologos/**", "/turnos/**").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/pacientes/**", "/odontologos/**", "/turnos/**").hasRole("ADMIN")
+                        .anyRequest().authenticated()
+                )
                 .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
                 .build();
     }

@@ -46,7 +46,7 @@ public class JwtUtils {
                 // vence en 30 min
                 .withExpiresAt(new Date(System.currentTimeMillis() + 1800000 ))
                 .withJWTId(UUID.randomUUID().toString())
-                .withNotBefore(new Date(System.currentTimeMillis() + 1800000 ))
+                .withNotBefore(new Date())
                 .sign(algorithm);
 
 

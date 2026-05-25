@@ -2,6 +2,7 @@ package com.emiliano.turnosOdontologico.security.filter;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.emiliano.turnosOdontologico.utils.JwtUtils;
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,7 +35,12 @@ public class JwtTokenValidator extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         String  jwtToken = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        if (jwtToken != null){
+        if (jwtToken == null || !jwtToken.startsWith("Bearer ")) {
+            filterChain.doFilter(request,response);
+            return;
+        }
+
+        try {
             jwtToken = jwtToken.substring(7);
             DecodedJWT decodedJWT = jwtUtils.validateToken(jwtToken);
 
@@ -49,6 +55,10 @@ public class JwtTokenValidator extends OncePerRequestFilter {
             SecurityContextHolder.setContext(context);
 
             filterChain.doFilter(request,response);
+        } catch (JWTVerificationException e) {
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token invalido. No autorizado");
         }
     }
 }
