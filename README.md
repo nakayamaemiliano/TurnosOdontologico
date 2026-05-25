@@ -4,6 +4,20 @@ API REST para administrar turnos de una clinica odontologica. El proyecto cubre 
 
 La aplicacion esta preparada para trabajar tanto en entorno local como con Docker Compose, e incluye documentacion interactiva con Swagger/OpenAPI y tests automatizados.
 
+## Que demuestra este proyecto
+
+Este proyecto demuestra conocimientos practicos en:
+
+- Diseno de APIs REST con Spring Boot.
+- Seguridad stateless con Spring Security y JWT.
+- Separacion por capas: Controller, Service, Repository, DTO y Mapper.
+- Persistencia con Spring Data JPA y MySQL.
+- Validacion de datos y manejo centralizado de excepciones.
+- Documentacion interactiva con Swagger/OpenAPI.
+- Configuracion mediante variables de entorno.
+- Dockerizacion de backend y base de datos.
+- Testing unitario y de contexto con JUnit, Mockito, H2 y Spring Boot Test.
+
 ## Funcionalidades
 
 - Alta, listado, busqueda, actualizacion y eliminacion de pacientes.
@@ -82,7 +96,7 @@ $env:JWT_PRIVATE_KEY='change-this-secret-key-before-production'
 $env:JWT_USER_GENERATOR='TURNOS_ODONTOLOGICO_API'
 $env:CORS_ALLOWED_ORIGINS='http://localhost:3000,http://localhost:5173'
 $env:APP_SEED_ENABLED='true'
-$env:APP_SEED_ADMIN_USERNAME='codex_admin'
+$env:APP_SEED_ADMIN_USERNAME='demo_admin'
 $env:APP_SEED_ADMIN_PASSWORD='admin123'
 ```
 
@@ -177,7 +191,7 @@ Body de ejemplo:
 
 ```json
 {
-  "username": "codex_admin",
+  "username": "demo_admin",
   "password": "admin123"
 }
 ```
@@ -186,7 +200,7 @@ Respuesta esperada:
 
 ```json
 {
-  "username": "codex_admin",
+  "username": "demo_admin",
   "message": "login ok",
   "jwt": "TOKEN",
   "status": true
@@ -199,7 +213,7 @@ Para consumir endpoints protegidos:
 Authorization: Bearer TOKEN
 ```
 
-El usuario `codex_admin` se crea automaticamente al iniciar la aplicacion si `APP_SEED_ENABLED=true`. En un entorno productivo se recomienda cambiar la password inicial o desactivar el seed.
+El usuario `demo_admin` se crea automaticamente al iniciar la aplicacion si `APP_SEED_ENABLED=true`. En un entorno productivo se recomienda cambiar la password inicial o desactivar el seed.
 
 ## CORS
 
@@ -281,7 +295,7 @@ Cuando `APP_SEED_ENABLED=true`, la aplicacion crea automaticamente:
 Credenciales por defecto:
 
 ```text
-Usuario: codex_admin
+Usuario: demo_admin
 Password: admin123
 ```
 

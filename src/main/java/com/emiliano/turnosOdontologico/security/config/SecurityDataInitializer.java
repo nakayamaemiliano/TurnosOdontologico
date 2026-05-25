@@ -27,7 +27,7 @@ public class SecurityDataInitializer implements CommandLineRunner {
     @Value("${app.seed.enabled:true}")
     private boolean seedEnabled;
 
-    @Value("${app.seed.admin.username:codex_admin}")
+    @Value("${app.seed.admin.username:demo_admin}")
     private String adminUsername;
 
     @Value("${app.seed.admin.password:admin123}")
