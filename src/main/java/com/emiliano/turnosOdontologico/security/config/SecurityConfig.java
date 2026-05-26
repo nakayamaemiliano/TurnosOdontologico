@@ -40,8 +40,14 @@ public class SecurityConfig {
                 .formLogin(formLogin -> formLogin.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) ->
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "No autorizado"))
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.getWriter().write("No autorizado");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.getWriter().write("Acceso denegado");
+                        })
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -51,9 +57,9 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                        .requestMatchers("/users/**", "/roles/**", "/permissions/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/pacientes/**", "/odontologos/**", "/turnos/**").hasAnyRole("ADMIN", "USER")
-                        .requestMatchers("/pacientes/**", "/odontologos/**", "/turnos/**").hasRole("ADMIN")
+                        .requestMatchers("/users", "/users/**", "/roles", "/roles/**", "/permissions", "/permissions/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/pacientes", "/pacientes/**", "/odontologos", "/odontologos/**", "/turnos", "/turnos/**").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/pacientes", "/pacientes/**", "/odontologos", "/odontologos/**", "/turnos", "/turnos/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
