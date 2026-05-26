@@ -1,11 +1,15 @@
 package com.emiliano.turnosOdontologico.security.controller;
 
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.PermissionRequestDTO;
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.PermissionResponseDTO;
+import com.emiliano.turnosOdontologico.mapper.SecurityMapper;
 import com.emiliano.turnosOdontologico.security.model.Permission;
 import com.emiliano.turnosOdontologico.security.service.IPermissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +24,9 @@ public class PermissionController {
     @Autowired
     private IPermissionService permissionService;
 
+    @Autowired
+    private SecurityMapper securityMapper;
+
     @Operation(summary = "Listar permisos", description = "Devuelve todos los permisos del sistema")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Listado obtenido correctamente"),
@@ -27,8 +34,10 @@ public class PermissionController {
             @ApiResponse(responseCode = "403", description = "No tiene permisos de administrador")
     })
     @GetMapping
-    public ResponseEntity<List<Permission>> getAllPermissions(){
-        List<Permission> permissions = permissionService.findAll();
+    public ResponseEntity<List<PermissionResponseDTO>> getAllPermissions(){
+        List<PermissionResponseDTO> permissions = permissionService.findAll().stream()
+                .map(securityMapper::toPermissionResponseDTO)
+                .toList();
         return ResponseEntity.ok(permissions);
     }
 
@@ -40,9 +49,12 @@ public class PermissionController {
             @ApiResponse(responseCode = "404", description = "Permiso no encontrado")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<Permission> getPermissionById(@PathVariable Long id) {
+    public ResponseEntity<PermissionResponseDTO> getPermissionById(@PathVariable Long id) {
         Optional<Permission> permission = permissionService.findById(id);
-        return permission.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return permission
+                .map(securityMapper::toPermissionResponseDTO)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Crear permiso", description = "Registra un nuevo permiso")
@@ -53,9 +65,10 @@ public class PermissionController {
             @ApiResponse(responseCode = "403", description = "No tiene permisos de administrador")
     })
     @PostMapping
-    public ResponseEntity<Permission> createPermission(@RequestBody Permission permission) {
+    public ResponseEntity<PermissionResponseDTO> createPermission(@RequestBody @Valid PermissionRequestDTO permissionRequestDTO) {
+        Permission permission = securityMapper.toPermissionEntity(permissionRequestDTO);
         Permission newPermission = permissionService.save(permission);
-        return ResponseEntity.ok(newPermission);
+        return ResponseEntity.ok(securityMapper.toPermissionResponseDTO(newPermission));
     }
 
     @Operation(summary = "Actualizar permiso", description = "Actualiza el nombre de un permiso existente")
@@ -67,9 +80,9 @@ public class PermissionController {
             @ApiResponse(responseCode = "404", description = "Permiso no encontrado")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<Permission> updatePermission(
+    public ResponseEntity<PermissionResponseDTO> updatePermission(
             @PathVariable Long id,
-            @RequestBody Permission permissionDetails) {
+            @RequestBody @Valid PermissionRequestDTO permissionRequestDTO) {
 
         Optional<Permission> permissionOptional = permissionService.findById(id);
 
@@ -78,11 +91,11 @@ public class PermissionController {
         }
 
         Permission permission = permissionOptional.get();
-        permission.setPermissionName(permissionDetails.getPermissionName());
+        securityMapper.updatePermissionFromDTO(permission, permissionRequestDTO);
 
         Permission updatedPermission = permissionService.save(permission);
 
-        return ResponseEntity.ok(updatedPermission);
+        return ResponseEntity.ok(securityMapper.toPermissionResponseDTO(updatedPermission));
     }
 
     @Operation(summary = "Eliminar permiso", description = "Elimina un permiso existente")

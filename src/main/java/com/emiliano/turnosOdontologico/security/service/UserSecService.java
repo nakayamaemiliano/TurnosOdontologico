@@ -3,6 +3,7 @@ package com.emiliano.turnosOdontologico.security.service;
 import com.emiliano.turnosOdontologico.security.model.UserSec;
 import com.emiliano.turnosOdontologico.security.repository.UserSecRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,6 +13,9 @@ import java.util.Optional;
 public class UserSecService implements IUserSecService{
     @Autowired
     private UserSecRepository userSecRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public List<UserSec> findAll() {
@@ -40,6 +44,6 @@ public class UserSecService implements IUserSecService{
 
     @Override
     public String encriptPassword(String password) {
-        return "";
+        return passwordEncoder.encode(password);
     }
 }

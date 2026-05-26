@@ -1,5 +1,8 @@
 package com.emiliano.turnosOdontologico.security.controller;
 
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.RoleRequestDTO;
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.RoleResponseDTO;
+import com.emiliano.turnosOdontologico.mapper.SecurityMapper;
 import com.emiliano.turnosOdontologico.security.model.Permission;
 import com.emiliano.turnosOdontologico.security.model.Role;
 import com.emiliano.turnosOdontologico.security.service.IPermissionService;
@@ -8,14 +11,16 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Tag(name = "Roles", description = "Operaciones para gestionar roles de seguridad")
 @RestController
@@ -28,6 +33,9 @@ public class RoleController {
     @Autowired
     private IPermissionService permiService;
 
+    @Autowired
+    private SecurityMapper securityMapper;
+
     @Operation(summary = "Listar roles", description = "Devuelve todos los roles del sistema")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Listado obtenido correctamente"),
@@ -35,8 +43,10 @@ public class RoleController {
             @ApiResponse(responseCode = "403", description = "No tiene permisos de administrador")
     })
     @GetMapping
-    public ResponseEntity<List<Role>> getAllRoles() {
-        List<Role> roles = roleService.findAll();
+    public ResponseEntity<List<RoleResponseDTO>> getAllRoles() {
+        List<RoleResponseDTO> roles = roleService.findAll().stream()
+                .map(securityMapper::toRoleResponseDTO)
+                .toList();
         return ResponseEntity.ok(roles);
     }
 
@@ -48,9 +58,12 @@ public class RoleController {
             @ApiResponse(responseCode = "404", description = "Rol no encontrado")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<Role> getRoleById(@PathVariable Long id) {
+    public ResponseEntity<RoleResponseDTO> getRoleById(@PathVariable Long id) {
         Optional<Role> role = roleService.findById(id);
-        return role.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return role
+                .map(securityMapper::toRoleResponseDTO)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Crear rol", description = "Registra un rol y le asigna permisos existentes")
@@ -61,22 +74,17 @@ public class RoleController {
             @ApiResponse(responseCode = "403", description = "No tiene permisos de administrador")
     })
     @PostMapping
-    public ResponseEntity<Role> createRole(@RequestBody Role role) {
-        Set<Permission> permiList = new HashSet<Permission>();
-        Permission readPermission;
+    public ResponseEntity<RoleResponseDTO> createRole(@RequestBody @Valid RoleRequestDTO roleRequestDTO) {
+        Set<Permission> permiList = findPermissionsByIds(roleRequestDTO.permissionIds());
 
-        // Recuperar la Permission/s por su ID
-        for (Permission per : role.getPermissionsList()) {
-            readPermission = permiService.findById(per.getId()).orElse(null);
-            if (readPermission != null) {
-                //si encuentro, guardo en la lista
-                permiList.add(readPermission);
-            }
+        if (permiList.size() != roleRequestDTO.permissionIds().size()) {
+            return ResponseEntity.badRequest().build();
         }
 
+        Role role = securityMapper.toRoleEntity(roleRequestDTO);
         role.setPermissionsList(permiList);
         Role newRole = roleService.save(role);
-        return ResponseEntity.ok(newRole);
+        return ResponseEntity.ok(securityMapper.toRoleResponseDTO(newRole));
     }
 
     @Operation(summary = "Actualizar rol", description = "Actualiza el nombre y permisos de un rol")
@@ -88,9 +96,9 @@ public class RoleController {
             @ApiResponse(responseCode = "404", description = "Rol no encontrado")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<Role> updateRole(
+    public ResponseEntity<RoleResponseDTO> updateRole(
             @PathVariable Long id,
-            @RequestBody Role roleDetails) {
+            @RequestBody @Valid RoleRequestDTO roleRequestDTO) {
 
         Optional<Role> roleOptional = roleService.findById(id);
 
@@ -100,24 +108,18 @@ public class RoleController {
 
         Role role = roleOptional.get();
 
-        role.setRole(roleDetails.getRole());
+        Set<Permission> permiList = findPermissionsByIds(roleRequestDTO.permissionIds());
 
-        Set<Permission> permiList = new HashSet<>();
-        Permission readPermission;
-
-        for (Permission per : roleDetails.getPermissionsList()) {
-            readPermission = permiService.findById(per.getId()).orElse(null);
-
-            if (readPermission != null) {
-                permiList.add(readPermission);
-            }
+        if (permiList.size() != roleRequestDTO.permissionIds().size()) {
+            return ResponseEntity.badRequest().build();
         }
 
+        securityMapper.updateRoleFromDTO(role, roleRequestDTO);
         role.setPermissionsList(permiList);
 
         Role updatedRole = roleService.save(role);
 
-        return ResponseEntity.ok(updatedRole);
+        return ResponseEntity.ok(securityMapper.toRoleResponseDTO(updatedRole));
     }
 
     @Operation(summary = "Eliminar rol", description = "Elimina un rol existente")
@@ -138,6 +140,13 @@ public class RoleController {
         roleService.deleteById(id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    private Set<Permission> findPermissionsByIds(Set<Long> permissionIds) {
+        return permissionIds.stream()
+                .map(id -> permiService.findById(id).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
 }

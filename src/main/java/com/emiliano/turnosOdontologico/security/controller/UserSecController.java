@@ -1,5 +1,9 @@
 package com.emiliano.turnosOdontologico.security.controller;
 
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.UserSecCreateRequestDTO;
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.UserSecResponseDTO;
+import com.emiliano.turnosOdontologico.dto.SecurityDTO.UserSecUpdateRequestDTO;
+import com.emiliano.turnosOdontologico.mapper.SecurityMapper;
 import com.emiliano.turnosOdontologico.security.model.Role;
 import com.emiliano.turnosOdontologico.security.model.UserSec;
 import com.emiliano.turnosOdontologico.security.service.IRoleService;
@@ -8,14 +12,16 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Tag(name = "Usuarios", description = "Operaciones para gestionar usuarios de seguridad")
 @RestController
@@ -27,6 +33,9 @@ public class UserSecController {
     @Autowired
     private IRoleService roleService;
 
+    @Autowired
+    private SecurityMapper securityMapper;
+
     @Operation(summary = "Listar usuarios", description = "Devuelve todos los usuarios del sistema")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Listado obtenido correctamente"),
@@ -34,8 +43,10 @@ public class UserSecController {
             @ApiResponse(responseCode = "403", description = "No tiene permisos de administrador")
     })
     @GetMapping
-    public ResponseEntity<List<UserSec>> getAllUsers() {
-        List<UserSec> users = userService.findAll();
+    public ResponseEntity<List<UserSecResponseDTO>> getAllUsers() {
+        List<UserSecResponseDTO> users = userService.findAll().stream()
+                .map(securityMapper::toUserResponseDTO)
+                .toList();
         return ResponseEntity.ok(users);
     }
 
@@ -47,9 +58,12 @@ public class UserSecController {
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<UserSec> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserSecResponseDTO> getUserById(@PathVariable Long id) {
         Optional<UserSec> user = userService.findById(id);
-        return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return user
+                .map(securityMapper::toUserResponseDTO)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Crear usuario", description = "Registra un usuario y le asigna roles existentes")
@@ -60,30 +74,19 @@ public class UserSecController {
             @ApiResponse(responseCode = "403", description = "No tiene permisos de administrador")
     })
     @PostMapping
-    public ResponseEntity<UserSec> createUser(@RequestBody UserSec userSec) {
+    public ResponseEntity<UserSecResponseDTO> createUser(@RequestBody @Valid UserSecCreateRequestDTO userRequestDTO) {
+        Set<Role> roleList = findRolesByIds(userRequestDTO.roleIds());
 
-        Set<Role> roleList = new HashSet<Role>();
-        Role readRole;
-
-        //encriptamos contraseña
-        userSec.setPassword(userService.encriptPassword(userSec.getPassword()));
-
-        // Recuperar la Permission/s por su ID
-        for (Role role : userSec.getRoleList()){
-            readRole = roleService.findById(role.getId()).orElse(null);
-            if (readRole != null) {
-                //si encuentro, guardo en la lista
-                roleList.add(readRole);
-            }
+        if (roleList.size() != userRequestDTO.roleIds().size()) {
+            return ResponseEntity.badRequest().build();
         }
 
-        if (!roleList.isEmpty()) {
-            userSec.setRoleList(roleList);
+        String encryptedPassword = userService.encriptPassword(userRequestDTO.password());
+        UserSec userSec = securityMapper.toUserEntity(userRequestDTO, encryptedPassword);
+        userSec.setRoleList(roleList);
 
-            UserSec newUser = userService.save(userSec);
-            return ResponseEntity.ok(newUser);
-        }
-        return null;
+        UserSec newUser = userService.save(userSec);
+        return ResponseEntity.ok(securityMapper.toUserResponseDTO(newUser));
     }
 
     @Operation(summary = "Actualizar usuario", description = "Actualiza datos, estado y roles de un usuario")
@@ -95,9 +98,9 @@ public class UserSecController {
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<UserSec> updateUser(
+    public ResponseEntity<UserSecResponseDTO> updateUser(
             @PathVariable Long id,
-            @RequestBody UserSec userDetails) {
+            @RequestBody @Valid UserSecUpdateRequestDTO userRequestDTO) {
 
         Optional<UserSec> userOptional = userService.findById(id);
 
@@ -105,39 +108,23 @@ public class UserSecController {
             return ResponseEntity.notFound().build();
         }
 
-        UserSec user = userOptional.get();
+        Set<Role> roleList = findRolesByIds(userRequestDTO.roleIds());
 
-        user.setUsername(userDetails.getUsername());
-
-        if (userDetails.getPassword() != null && !userDetails.getPassword().isBlank()) {
-            user.setPassword(userService.encriptPassword(userDetails.getPassword()));
-        }
-
-        user.setEnabled(userDetails.isEnabled());
-        user.setAccountNotExpired(userDetails.isAccountNotExpired());
-        user.setAccountNotLocked(userDetails.isAccountNotLocked());
-        user.setCredentialNotExpired(userDetails.isCredentialNotExpired());
-
-        Set<Role> roleList = new HashSet<>();
-        Role readRole;
-
-        for (Role role : userDetails.getRoleList()) {
-            readRole = roleService.findById(role.getId()).orElse(null);
-
-            if (readRole != null) {
-                roleList.add(readRole);
-            }
-        }
-
-        if (roleList.isEmpty()) {
+        if (roleList.size() != userRequestDTO.roleIds().size()) {
             return ResponseEntity.badRequest().build();
+        }
+
+        UserSec user = userOptional.get();
+        securityMapper.updateUserFromDTO(user, userRequestDTO);
+
+        if (userRequestDTO.password() != null && !userRequestDTO.password().isBlank()) {
+            user.setPassword(userService.encriptPassword(userRequestDTO.password()));
         }
 
         user.setRoleList(roleList);
 
         UserSec updatedUser = userService.save(user);
-
-        return ResponseEntity.ok(updatedUser);
+        return ResponseEntity.ok(securityMapper.toUserResponseDTO(updatedUser));
     }
 
     @Operation(summary = "Eliminar usuario", description = "Elimina un usuario existente")
@@ -158,5 +145,12 @@ public class UserSecController {
         userService.deleteById(id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    private Set<Role> findRolesByIds(Set<Long> roleIds) {
+        return roleIds.stream()
+                .map(id -> roleService.findById(id).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 }
